@@ -16,64 +16,48 @@ int main(int argc, char *argv[])
 	int status;
 	pid_t pid;
 	struct sockaddr_in serverAddress, clientAddress;
-
-	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
-
-	// Set up the address struct for this process (the server)
-	memset((char *)&serverAddress, '\0', sizeof(serverAddress)); // Clear out the address struct
-	portNumber = atoi(argv[1]); // Get the port number, convert to an integer from a string
-	serverAddress.sin_family = AF_INET; // Create a network-capable socket
-	serverAddress.sin_port = htons(portNumber); // Store the port number
-	serverAddress.sin_addr.s_addr = INADDR_ANY; // Any address is allowed for connection to this process
-
-	// Set up the socket
-	listenSocketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
+	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } 
+	memset((char *)&serverAddress, '\0', sizeof(serverAddress));
+	portNumber = atoi(argv[1]); 
+	serverAddress.sin_family = AF_INET; 
+	serverAddress.sin_port = htons(portNumber); 
+	serverAddress.sin_addr.s_addr = INADDR_ANY; 
+	listenSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 	if (listenSocketFD < 0) error("ERROR opening socket");
-
-	// Enable the socket to begin listening
-	if (bind(listenSocketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to port
+	if (bind(listenSocketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) 
 		error("ERROR on binding");
 
 	while (1){
-		listen(listenSocketFD, 12); // Flip the socket on - it can now receive up to 12 connections
-		// Accept a connection, blocking if one is not available until one connects
-		sizeOfClientInfo = sizeof(clientAddress); // Get the size of the address for the client that will connect
-		establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
+		listen(listenSocketFD, 12);
+		sizeOfClientInfo = sizeof(clientAddress); 
+		establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); 
 		if (establishedConnectionFD < 0) error("ERROR on accept");
-		pid = fork();	// Proces is forked
+		pid = fork();	
 		switch (pid){
-			case 0:{	// Child function
-				int charsRead;	// Int charsRead declared
-				char characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "; // Chars arrat is declared
-				char bufferKey[11];	// Char array key is declared
-				char bufferCipher[11];	// Char array key is declared
-				char message[100000];	// Char array message is declared
-				char key[100000];	// Char array key is declared
-				char ciphertext[100000];	// Char array ciphertext is declared
-				memset(message, '\0', 100000);	// Char array message is cleared
-				memset(key, '\0', 100000);	// Char key message is cleared
-				memset(ciphertext, '\0', 100000);	// Char array ciphertext is cleared
+			case 0:{	
+				int charsRead;	
+				char characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "; 
+				char bufferKey[11];	
+				char bufferCipher[11];	
+				char message[100000];	
+				char key[100000];	
+				char ciphertext[100000];
+				memset(message, '\0', 100000);	
+				memset(key, '\0', 100000);	
+				memset(ciphertext, '\0', 100000);	
 
-				recv(establishedConnectionFD, bufferCipher, 10 , 0);	// bufferCipher is recieved
+				recv(establishedConnectionFD, bufferCipher, 10 , 0);
 				int k = 10;
 
-/*
-Characters '*' are removed from input message.  for example,
-if the message 555******, the stars are removed and 555 is created.
-*/
 				while (bufferCipher[k-1] == '*')
 				{
 					bufferCipher[k-1] = '\0';
 					k--;
 
 				}
-				int cipher_Length = atoi(bufferCipher); // Input is converted to integer
-				recv(establishedConnectionFD, bufferKey, 10 , 0);	// KEy size is received
+				int cipher_Length = atoi(bufferCipher); 
+				recv(establishedConnectionFD, bufferKey, 10 , 0);
 
-/*
-Characters '*' are removed from input message.  for example,
-if the message 555******, the stars are removed and 555 is created.
-*/
 				int j = 10;
 				while (bufferKey[j-1] == '*')
 				{
@@ -81,51 +65,47 @@ if the message 555******, the stars are removed and 555 is created.
 					j--;
 
 				}
-				int key_Length = atoi(bufferKey); // Input is converted to integer
+				int key_Length = atoi(bufferKey); 
 
-				charsRead = recv(establishedConnectionFD, ciphertext, cipher_Length+1, MSG_WAITALL); // Read the client's message from the socket
+				charsRead = recv(establishedConnectionFD, ciphertext, cipher_Length+1, MSG_WAITALL); 
 				if (charsRead < 0) error("ERROR reading from socket");
-				charsRead = recv(establishedConnectionFD, key, key_Length+1, MSG_WAITALL); // Read the client's message from the socket
+				charsRead = recv(establishedConnectionFD, key, key_Length+1, MSG_WAITALL); 
 				if (charsRead < 0) error("ERROR reading from socket");
 
 				int numOne;
 				int numTwo;
 				int finNum;
-
 					int i;
 					for(i = 0; ciphertext[i] != '\n'; i++){
-						// Character position for letter is found and set ad numOne
 						int x;
 						for (x = 0; x < 27; x++){
 							if (ciphertext[i] == characters[x]){
 									numOne = x;
 							}
 						}
-						// Character position for letter is found and set ad numTwo
 						for (x = 0; x < 27; x++){
 							if (key[i] == characters[x]){
 									numTwo = x;
 							}
 						}
-						// finNum is calculated and decrypted
 						finNum = numOne - numTwo;
 						if (finNum < 0){
 							finNum += 27;
 						}
-						// Message char array is declared and initialized to the  resulting decrypted message.
+
 						message[i] = characters[finNum];
 					}
-					int messageLen = strlen(message);// Length of message is found
-					charsWritten = send(establishedConnectionFD, message, messageLen+1, MSG_WAITALL); // message is sent to client
-					if (charsWritten < 0) error("CLIENT: ERROR writing to socket");	// Check for errors
-					if (charsWritten < strlen(message)) printf("CLIENT: WARNING: Not all data written to socket!\n");	// Check for errors
+					int messageLen = strlen(message);
+					charsWritten = send(establishedConnectionFD, message, messageLen+1, MSG_WAITALL); 
+					if (charsWritten < 0) error("CLIENT: ERROR writing to socket");	
+					if (charsWritten < strlen(message)) printf("CLIENT: WARNING: Not all data written to socket!\n");	
 				exit(0);
 			}
 			default:{
-				pid_t actialpid = waitpid(pid, &status, WNOHANG);	// PArent PID Wait
+				pid_t actialpid = waitpid(pid, &status, WNOHANG);	
 			}
 		}
-		close(establishedConnectionFD); // Close the existing socket which is connected to the client
+		close(establishedConnectionFD); 
 	}
 	close(listenSocketFD);
 	return 0;
